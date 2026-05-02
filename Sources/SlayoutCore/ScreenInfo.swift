@@ -1,5 +1,7 @@
 import Foundation
 
+/// `frame` and `visibleFrame` use top-left global coordinates (matching AX
+/// and CGWindowList): primary display at origin (0,0), y grows downward.
 public struct ScreenInfo: Equatable, Sendable {
     public let displayID: UInt32
     public let name: String

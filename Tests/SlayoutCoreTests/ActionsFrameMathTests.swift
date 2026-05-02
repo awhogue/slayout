@@ -22,14 +22,14 @@ struct ActionsFrameMathTests {
     }
 
     @Test func topHalf() {
-        // Cocoa coords (origin bottom-left): "top" = upper, higher y.
+        // Top-left coords (origin top-left): "top" = upper, smaller y.
         #expect(Actions.tile(.topHalf, visibleFrame: vf, currentFrame: cur)
-                == CGRect(x: 0, y: 450, width: 1200, height: 450))
+                == CGRect(x: 0, y: 0, width: 1200, height: 450))
     }
 
     @Test func bottomHalf() {
         #expect(Actions.tile(.bottomHalf, visibleFrame: vf, currentFrame: cur)
-                == CGRect(x: 0, y: 0, width: 1200, height: 450))
+                == CGRect(x: 0, y: 450, width: 1200, height: 450))
     }
 
     @Test func leftTwoThirds() {

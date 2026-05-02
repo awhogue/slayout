@@ -4,7 +4,9 @@ public enum Actions {
 
     /// Compute the target frame for a tile-style action within the given visible frame.
     /// Returns nil for non-tile actions (e.g. `.screen(_)`).
-    /// All coordinates are in the same coordinate system as `visibleFrame` (Cocoa: origin bottom-left).
+    /// All SlayoutCore geometry uses **top-left global coordinates** (AX / CGWindowList style):
+    /// y grows downward, primary display origin at (0, 0). NSScreenProvider converts NSScreen
+    /// frames into this convention.
     public static func tile(_ action: WindowAction, visibleFrame vf: CGRect, currentFrame cur: CGRect) -> CGRect? {
         switch action {
         case .fullscreen:
@@ -14,9 +16,9 @@ public enum Actions {
         case .rightHalf:
             return CGRect(x: vf.minX + vf.width / 2, y: vf.minY, width: vf.width / 2, height: vf.height)
         case .topHalf:
-            return CGRect(x: vf.minX, y: vf.minY + vf.height / 2, width: vf.width, height: vf.height / 2)
-        case .bottomHalf:
             return CGRect(x: vf.minX, y: vf.minY, width: vf.width, height: vf.height / 2)
+        case .bottomHalf:
+            return CGRect(x: vf.minX, y: vf.minY + vf.height / 2, width: vf.width, height: vf.height / 2)
         case .leftTwoThirds:
             return CGRect(x: vf.minX, y: vf.minY, width: vf.width * 2 / 3, height: vf.height)
         case .rightTwoThirds:
@@ -52,6 +54,30 @@ public enum Actions {
                 return screens[idx]
             }
             return screens.first(where: { $0.name == name })
+        }
+    }
+
+    /// Apply a WindowAction to a window through a WindowServer.
+    /// Resolves the target frame and target screen, then delegates to `server.setFrame`.
+    public static func apply(_ action: WindowAction,
+                             to window: WindowRef,
+                             server: WindowServer,
+                             screens: [ScreenInfo]) throws {
+        guard let currentScreen = screens.first(where: { $0.displayID == window.screenID }) else {
+            throw ActionError.windowScreenNotFound(window.screenID)
+        }
+
+        switch action {
+        case .screen(let name):
+            guard let target = resolveScreen(name, screens: screens, currentScreenID: window.screenID) else {
+                throw ActionError.unknownScreen(name)
+            }
+            let newFrame = moveToScreen(target, from: currentScreen, currentFrame: window.frame)
+            server.setFrame(newFrame, of: window)
+        default:
+            if let newFrame = tile(action, visibleFrame: currentScreen.visibleFrame, currentFrame: window.frame) {
+                server.setFrame(newFrame, of: window)
+            }
         }
     }
 

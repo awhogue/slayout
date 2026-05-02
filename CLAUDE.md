@@ -36,14 +36,16 @@ If `swift test` fails with `no such module 'Testing'`:
 
 1. ✅ Skeleton: SwiftPM, AppDelegate, menubar stub, Permissions module.
 2. ✅ Config TOML parsing (TOMLKit dep; `Config`, `HyperTrigger`, `WindowAction`, `MetaBindings`, `ConfigLoader.parse`).
-3. ✅ ScreenProvider + Actions frame math (`ScreenInfo`, `ScreenProvider`, `Actions.tile`/`resolveScreen`/`moveToScreen`).
-4. WindowServer protocol + FakeWindowServer.
-5. AX adapter (live).
-6. EventSource + Bindings.dispatch + CGEventTap + caps-lock→F18 remap.
-7. LayoutStore capture/restore + matching.
-8. Recorder state machine.
-9. LastLayoutWatcher.
-10. Polish: live reload, README.
+3. ✅ ScreenProvider + Actions frame math (`ScreenInfo`, `ScreenProvider`, `Actions.tile`/`resolveScreen`/`moveToScreen`). Geometry uses **top-left global coords** (AX/CGWindowList convention); `NSScreenProvider` flips from Cocoa.
+4. ✅ WindowServer protocol + FakeWindowServer + `Actions.apply`.
+5. ✅ AX adapter (`WindowServerAX`, `NSScreenProvider`); menubar items wired for manual smoke test.
+6. ✅ EventSource + Bindings.dispatch + CGEventTap + caps-lock→F18 remap. KeyCodes table, Executor, ConfigPaths (~/.config/slayout/), AppDelegate wired end-to-end.
+7. ✅ LayoutStore capture/restore + matching (`LayoutCapture`, `LayoutRestore`, `LayoutStore` JSON serialization). Matching: exact-title → longest-prefix → first-of-app, with claimed-window tracking.
+8. ✅ Recorder state machine. Recording mode lives in `Bindings.isRecording`; `Recorder.bind(to:)` captures+saves; AppDelegate wires it up.
+9. ✅ LastLayoutSelector keyed by per-screens fingerprint with stableInterval; AppDelegate ticks every 2s and observes `didChangeScreenParametersNotification`.
+10. ✅ Polish: README, live config reload via DispatchSourceFileSystemObject in AppDelegate.
+
+**v1 complete.** 76 tests passing.
 
 Update this section's checkmarks as steps land.
 
