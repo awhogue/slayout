@@ -21,8 +21,14 @@ fi
 
 echo "==> assembling $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_PATH" "$APP/Contents/MacOS/Slayout"
+
+if [[ ! -f Resources/Slayout.icns ]]; then
+    echo "==> rendering icon (Resources/Slayout.icns missing)"
+    swift scripts/render-icon.swift
+fi
+cp Resources/Slayout.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -32,6 +38,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleExecutable</key><string>Slayout</string>
     <key>CFBundleIdentifier</key><string>com.awhogue.slayout</string>
     <key>CFBundleName</key><string>Slayout</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleIconName</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
     <key>CFBundleVersion</key><string>1</string>

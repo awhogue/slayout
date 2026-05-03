@@ -21,9 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SlayoutLog.log("Input Monitoring granted: \(Permissions.hasInputMonitoring())")
         setupStatusItem()
         Permissions.requestAccessibilityIfNeeded()
-        if !Permissions.hasInputMonitoring() {
-            Permissions.openInputMonitoringSettings()
-        }
+        Permissions.requestInputMonitoringIfNeeded()
         loadConfigAndStart()
         observeScreenChanges()
         startTickTimer()

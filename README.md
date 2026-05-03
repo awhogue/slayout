@@ -14,10 +14,14 @@ Spaces support is deferred to v2.
 ## Build
 
 ```bash
-swift build              # debug build
-swift test               # run unit tests (76+ tests)
-./scripts/build-app.sh   # assemble Slayout.app (release, ad-hoc signed)
+swift build                       # debug build
+swift test                        # run unit tests (76+ tests)
+./scripts/build-app.sh            # assemble Slayout.app (release, ad-hoc signed)
+./scripts/package-release.sh      # build + package Slayout-<version>.zip for distribution
+swift scripts/render-icon.swift   # regenerate Resources/Slayout.icns
 ```
+
+The icon (`Resources/Slayout.icns`) is checked in so a normal build doesn't need to render it; re-run `render-icon.swift` only if you change the icon design.
 
 Requires Xcode (the standalone Command Line Tools toolchain ships neither XCTest nor Swift Testing). If `swift test` reports `no such module 'Testing'`, run:
 
@@ -42,8 +46,8 @@ The bundle has a stable `CFBundleIdentifier` (`com.awhogue.slayout`) and ad-hoc 
 
 Slayout needs **three** pieces of system permission, plus one Keyboard setting. Grant each, then quit and relaunch.
 
-1. **Accessibility** — required to read and move other apps' windows via `AXUIElement`. Slayout will prompt and deep-link.
-2. **Input Monitoring** — required for the `CGEventTap` that implements the hyper key. macOS does **not** auto-prompt for this; you have to add Slayout.app yourself: System Settings → Privacy & Security → Input Monitoring → `+` → choose `/Applications/Slayout.app`.
+1. **Accessibility** — required to read and move other apps' windows via `AXUIElement`. Slayout will prompt on first launch.
+2. **Input Monitoring** — required for the `CGEventTap` that implements the hyper key. Slayout calls `IOHIDRequestAccess` on launch, which auto-adds Slayout to the Input Monitoring list and shows a prompt; just toggle it on. (If for some reason it doesn't appear: System Settings → Privacy & Security → Input Monitoring → `+` → `/Applications/Slayout.app`.)
 3. **System Settings → Keyboard → Modifier Keys → Caps Lock = "Caps Lock"** — if it's set to "No Action", `hidutil`'s caps-lock-to-F18 remap silently no-ops and the hyper key never registers.
 4. **`hidutil` caps-lock remap** — Slayout invokes `hidutil property --set ...` at launch to map caps-lock to F18. No system permission needed, but the mapping is per-login-session, so Slayout reapplies it every launch.
 
@@ -59,6 +63,32 @@ If Karabiner-Elements is installed, its DriverKit system extension (`org.pqrs.Ka
 (`sudo systemextensionsctl uninstall` requires SIP off — don't do that.)
 
 You can also sidestep the issue entirely by changing `[hyper] trigger` in your config to `right_option`, `right_cmd`, or `f19`, none of which involve `hidutil`.
+
+## Distributing to another Mac
+
+To install Slayout on a second Mac without rebuilding from source on it:
+
+```bash
+# On the build machine:
+./scripts/package-release.sh
+# produces Slayout-0.1.0.zip (~800 KB)
+
+# Transfer the zip however you like (AirDrop, scp, GitHub release, Drive...)
+scp Slayout-0.1.0.zip other-mac:~/Downloads/
+```
+
+On the receiving Mac:
+
+```bash
+unzip ~/Downloads/Slayout-0.1.0.zip -d /Applications/
+# Right-click /Applications/Slayout.app -> Open the FIRST time
+# (Gatekeeper bypass for ad-hoc-signed apps; only needed once)
+open /Applications/Slayout.app
+```
+
+Then grant Accessibility + Input Monitoring (see "First-run setup" above). Slayout's config and saved layouts live in `~/.config/slayout/` so you can rsync those between machines too.
+
+The bundle is **ad-hoc signed**, not Developer-ID-signed or notarized. That's fine for personal use across your own machines — Gatekeeper just needs the right-click-open dance once. For wider distribution to others you'd need a paid Apple Developer account and `notarytool`.
 
 ## Logs
 
