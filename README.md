@@ -15,23 +15,60 @@ Spaces support is deferred to v2.
 
 ```bash
 swift build              # debug build
-swift run Slayout        # run from terminal
 swift test               # run unit tests (76+ tests)
+./scripts/build-app.sh   # assemble Slayout.app (release, ad-hoc signed)
 ```
 
-Requires Xcode 16+ (the standalone Command Line Tools toolchain ships neither XCTest nor Swift Testing). If `swift test` reports `no such module 'Testing'`, run:
+Requires Xcode (the standalone Command Line Tools toolchain ships neither XCTest nor Swift Testing). If `swift test` reports `no such module 'Testing'`, run:
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
+### Don't use `swift run` for real use
+
+`swift run Slayout` works for iteration but produces an unsigned binary in `.build/...` whose path and signature change on every rebuild. macOS keys Accessibility / Input Monitoring grants to the binary signature, so each rebuild silently revokes them; some permission prompts also get attributed to `Terminal.app` (the parent process) rather than to Slayout. Use the bundled `.app` instead:
+
+```bash
+./scripts/build-app.sh
+rm -rf /Applications/Slayout.app
+mv Slayout.app /Applications/
+open /Applications/Slayout.app
+```
+
+The bundle has a stable `CFBundleIdentifier` (`com.awhogue.slayout`) and ad-hoc signature, so permissions stick across rebuilds. Re-run `build-app.sh` after each code change to refresh the binary inside the bundle.
+
 ## First-run setup
 
-Slayout needs three pieces of system permission. The app will prompt you and deep-link to System Settings; grant each, then quit and relaunch.
+Slayout needs **three** pieces of system permission, plus one Keyboard setting. Grant each, then quit and relaunch.
 
-1. **Accessibility** — required to read and move other apps' windows via `AXUIElement`.
-2. **Input Monitoring** — required for the `CGEventTap` that implements the hyper key.
-3. **`hidutil` caps-lock remap** — Slayout invokes `hidutil property --set ...` at launch to map caps-lock to F18. Requires no special permission, but is per-login-session: re-run on every login (Slayout does this automatically when launched at login).
+1. **Accessibility** — required to read and move other apps' windows via `AXUIElement`. Slayout will prompt and deep-link.
+2. **Input Monitoring** — required for the `CGEventTap` that implements the hyper key. macOS does **not** auto-prompt for this; you have to add Slayout.app yourself: System Settings → Privacy & Security → Input Monitoring → `+` → choose `/Applications/Slayout.app`.
+3. **System Settings → Keyboard → Modifier Keys → Caps Lock = "Caps Lock"** — if it's set to "No Action", `hidutil`'s caps-lock-to-F18 remap silently no-ops and the hyper key never registers.
+4. **`hidutil` caps-lock remap** — Slayout invokes `hidutil property --set ...` at launch to map caps-lock to F18. No system permission needed, but the mapping is per-login-session, so Slayout reapplies it every launch.
+
+A session-level event tap requires **both** Accessibility and Input Monitoring. If you grant only one, `tapCreate` returns nil and you'll see `FAILED to create event tap` in `~/Library/Logs/Slayout/slayout.log`.
+
+### Conflicts with Karabiner-Elements
+
+If Karabiner-Elements is installed, its DriverKit system extension (`org.pqrs.Karabiner-DriverKit-VirtualHIDDevice`) intercepts caps-lock at the HID layer *below* `hidutil`'s remap, so Slayout never sees the keypress. Either:
+
+- Fully uninstall Karabiner via its own uninstaller (the dext goes with it), or
+- Disable the dext in System Settings → General → Login Items & Extensions → Driver Extensions → toggle Karabiner off.
+
+(`sudo systemextensionsctl uninstall` requires SIP off — don't do that.)
+
+You can also sidestep the issue entirely by changing `[hyper] trigger` in your config to `right_option`, `right_cmd`, or `f19`, none of which involve `hidutil`.
+
+## Logs
+
+Slayout writes a definitive trace to `~/Library/Logs/Slayout/slayout.log` (and stderr). Every event-tap creation, every config reload, every recorded layout. To turn on per-key debug tracing:
+
+```bash
+launchctl setenv SLAYOUT_DEBUG 1   # then relaunch Slayout
+```
+
+Or set `SLAYOUT_DEBUG=1` in the shell before launching directly.
 
 ## Configuration
 

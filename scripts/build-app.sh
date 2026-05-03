@@ -38,11 +38,6 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>LSUIElement</key><true/>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>LSEnvironment</key>
-    <dict>
-        <key>SLAYOUT_DEBUG</key>
-        <string>1</string>
-    </dict>
 </dict>
 </plist>
 PLIST
