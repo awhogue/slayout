@@ -97,3 +97,46 @@ guard task.terminationStatus == 0 else {
 // Cleanup the iconset directory; the .icns is self-contained.
 try? fm.removeItem(atPath: iconsetDir)
 print("==> \(icnsPath)")
+
+// --- Menubar template icon ---
+// Black "SL"/"AY" on a transparent background (no rounded tile). macOS tints
+// template images automatically for light/dark menubar backgrounds.
+func renderMenubarIcon(size: Int) -> Data {
+    let s = CGFloat(size)
+    let img = NSImage(size: NSSize(width: s, height: s))
+    img.lockFocus()
+    NSGraphicsContext.current!.imageInterpolation = .high
+
+    let fontSize = s * 0.46
+    let font = NSFont.systemFont(ofSize: fontSize, weight: .black)
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: NSColor.black,
+        .kern: -fontSize * 0.04,
+    ]
+    let line1 = NSAttributedString(string: "SL", attributes: attrs)
+    let line2 = NSAttributedString(string: "AY", attributes: attrs)
+    let m1 = line1.size(); let m2 = line2.size()
+    let lineHeight = fontSize * 0.85
+    let blockHeight = lineHeight * 2
+    let centerY = s / 2
+    let topY = centerY + blockHeight / 2 - lineHeight + (lineHeight - m1.height) / 2
+    let bottomY = centerY - blockHeight / 2 + (lineHeight - m2.height) / 2
+    line1.draw(at: NSPoint(x: (s - m1.width) / 2, y: topY))
+    line2.draw(at: NSPoint(x: (s - m2.width) / 2, y: bottomY))
+
+    img.unlockFocus()
+    let tiff = img.tiffRepresentation!
+    let rep = NSBitmapImageRep(data: tiff)!
+    return rep.representation(using: .png, properties: [:])!
+}
+
+let menubarOutputs: [(name: String, size: Int)] = [
+    ("MenubarIcon.png", 22),
+    ("MenubarIcon@2x.png", 44),
+]
+for (name, size) in menubarOutputs {
+    let data = renderMenubarIcon(size: size)
+    try data.write(to: URL(fileURLWithPath: "\(outputDir)/\(name)"))
+    print("wrote \(name) (\(size)x\(size))")
+}

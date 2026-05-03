@@ -46,8 +46,8 @@ The bundle has a stable `CFBundleIdentifier` (`com.awhogue.slayout`) and ad-hoc 
 
 Slayout needs **three** pieces of system permission, plus one Keyboard setting. Grant each, then quit and relaunch.
 
-1. **Accessibility** — required to read and move other apps' windows via `AXUIElement`. Slayout will prompt on first launch.
-2. **Input Monitoring** — required for the `CGEventTap` that implements the hyper key. Slayout calls `IOHIDRequestAccess` on launch, which auto-adds Slayout to the Input Monitoring list and shows a prompt; just toggle it on. (If for some reason it doesn't appear: System Settings → Privacy & Security → Input Monitoring → `+` → `/Applications/Slayout.app`.)
+1. **Accessibility** — required for both the AXUIElement window control AND the session-level CGEventTap. Slayout prompts on first launch and is added to System Settings → Privacy & Security → Accessibility automatically.
+2. **Input Monitoring** — *probably not needed* on macOS Sequoia / Tahoe; a session-level CGEventTap delivering keyboard events runs on Accessibility alone. Slayout still calls `IOHIDRequestAccess` defensively in case Apple's gating changes again. If you don't see a prompt and Slayout works anyway, you're fine.
 3. **System Settings → Keyboard → Modifier Keys → Caps Lock = "Caps Lock"** — if it's set to "No Action", `hidutil`'s caps-lock-to-F18 remap silently no-ops and the hyper key never registers.
 4. **`hidutil` caps-lock remap** — Slayout invokes `hidutil property --set ...` at launch to map caps-lock to F18. No system permission needed, but the mapping is per-login-session, so Slayout reapplies it every launch.
 

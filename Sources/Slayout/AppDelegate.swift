@@ -149,8 +149,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refreshStatusTitle() {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.statusItem?.button?.title = self.bindings.isRecording ? "● S" : "S"
+            guard let self = self, let button = self.statusItem?.button else { return }
+            // Show "●" alongside the icon while recording.
+            button.title = self.bindings.isRecording ? "● " : ""
         }
     }
 
@@ -170,7 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "S"
+        if let url = Bundle.main.url(forResource: "MenubarIcon", withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            img.size = NSSize(width: 18, height: 18)
+            img.isTemplate = true
+            item.button?.image = img
+        } else {
+            item.button?.title = "S"
+        }
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Slayout", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())

@@ -29,6 +29,8 @@ if [[ ! -f Resources/Slayout.icns ]]; then
     swift scripts/render-icon.swift
 fi
 cp Resources/Slayout.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Resources/MenubarIcon.png "$APP/Contents/Resources/MenubarIcon.png"
+cp Resources/MenubarIcon@2x.png "$APP/Contents/Resources/MenubarIcon@2x.png"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
