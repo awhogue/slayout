@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configWatcher: DispatchSourceFileSystemObject?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SlayoutLog.log("=== Slayout launching ===")
+        SlayoutLog.log("Bundle: \(Bundle.main.bundlePath)")
+        SlayoutLog.log("Accessibility granted: \(Permissions.hasAccessibility())")
+        SlayoutLog.log("Input Monitoring granted: \(Permissions.hasInputMonitoring())")
         setupStatusItem()
         Permissions.requestAccessibilityIfNeeded()
         if !Permissions.hasInputMonitoring() {

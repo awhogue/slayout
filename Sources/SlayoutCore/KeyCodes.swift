@@ -33,7 +33,39 @@ public enum KeyCodes {
         0x65: "f9", 0x6D: "f10", 0x67: "f11", 0x6F: "f12",
         0x69: "f13", 0x6B: "f14", 0x71: "f15", 0x6A: "f16",
         0x40: "f17", 0x4F: "f18", 0x50: "f19", 0x5A: "f20",
+        // Modifier keys (only fire as flagsChanged events, never as keyDown)
+        0x37: "left_cmd", 0x36: "right_cmd",
+        0x38: "left_shift", 0x3C: "right_shift",
+        0x3A: "left_option", 0x3D: "right_option",
+        0x3B: "left_ctrl", 0x3E: "right_ctrl",
+        0x3F: "fn",
     ]
+
+    /// Whether the given key string identifies a modifier (only delivered via
+    /// flagsChanged events, not keyDown).
+    public static func isModifier(_ key: String) -> Bool {
+        switch key {
+        case "left_cmd", "right_cmd", "left_shift", "right_shift",
+             "left_option", "right_option", "left_ctrl", "right_ctrl",
+             "caps_lock", "fn":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// CGEventFlags mask that's set when a given modifier key is pressed.
+    /// Returns nil for non-modifiers.
+    public static func flagMask(for key: String) -> UInt64? {
+        switch key {
+        case "left_cmd", "right_cmd": return 0x100000  // maskCommand
+        case "left_shift", "right_shift": return 0x20000  // maskShift
+        case "left_option", "right_option": return 0x80000  // maskAlternate
+        case "left_ctrl", "right_ctrl": return 0x40000  // maskControl
+        case "caps_lock": return 0x10000  // maskAlphaShift
+        default: return nil
+        }
+    }
 
     private static let reverse: [String: Int] = {
         var m: [String: Int] = [:]
