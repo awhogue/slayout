@@ -97,7 +97,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applySnapshot(_ snap: LayoutSnapshot) {
-        let plans = LayoutRestore.plan(snapshot: snap, current: server.allWindows(), screens: screens.screens)
+        // Snap the live world once. Keeping the same WindowRef list ensures
+        // server.setFrame finds a cached AX handle for each plan target.
+        let live = server.allWindows()
+        let plans = LayoutRestore.plan(snapshot: snap, current: live, screens: screens.screens)
+        SlayoutLog.log("Slayout: applySnapshot: \(plans.count) plan(s) from \(snap.windows.count) snapshot windows over \(live.count) live windows")
         for plan in plans {
             server.setFrame(plan.frame, of: plan.window)
         }
