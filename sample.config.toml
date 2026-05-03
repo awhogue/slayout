@@ -1,0 +1,26 @@
+[hyper]
+trigger = "caps_lock"   # caps_lock | right_cmd | right_option | f19
+
+[apps]
+# Hyper + key = focus this app
+T = "Terminal"
+C = "Google Chrome"
+F = "Finder"
+P = "Preview"
+
+[window]
+# Hyper + key = built-in window action
+"return" = "fullscreen"
+"[" = "left-two-thirds"
+"]" = "right-two-thirds"
+"left" = "left-half"
+"right" = "right-half"
+#"k" = "top-half"
+#"j" = "bottom-half"
+"up" = "screen:external"
+"down" = "screen:builtin"
+
+[meta]
+record = "s"
+restore_last = "z"
+reload = "r"
