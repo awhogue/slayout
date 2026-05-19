@@ -42,6 +42,12 @@ struct ActionsFrameMathTests {
                 == CGRect(x: 400, y: 0, width: 800, height: 900))
     }
 
+    @Test func middleTwoThirds() {
+        // 2/3 wide, horizontally centered: x = vf.width / 6 = 200, w = 800.
+        #expect(Actions.tile(.middleTwoThirds, visibleFrame: vf, currentFrame: cur)
+                == CGRect(x: 200, y: 0, width: 800, height: 900))
+    }
+
     @Test func thirds() {
         #expect(Actions.tile(.leftThird, visibleFrame: vf, currentFrame: cur)
                 == CGRect(x: 0, y: 0, width: 400, height: 900))

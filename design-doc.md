@@ -111,7 +111,7 @@ Computed against `NSScreen.visibleFrame` of the screen the active window is on (
 
 - `fullscreen` (visibleFrame, not native macOS fullscreen which creates a new space)
 - `left-half`, `right-half`, `top-half`, `bottom-half`
-- `left-two-thirds`, `right-two-thirds`, `left-third`, `middle-third`, `right-third`
+- `left-two-thirds`, `middle-two-thirds`, `right-two-thirds`, `left-third`, `middle-third`, `right-third`
 - `center` (preserve size, center in screen)
 - `screen:<name>` — move to display matching name (`external`, `builtin`, or index `0`/`1`)
 - `nudge:left|right|up|down:<px>` (optional, low priority)

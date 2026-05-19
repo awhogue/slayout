@@ -85,6 +85,7 @@ public final class Bindings {
         if savedLayouts.contains(key) {
             return HandleResult(consume: true, effect: .restoreLayout(key))
         }
+        SlayoutLog.vlog("Bindings: hyper+\"\(key)\" pressed but no binding matched")
         return HandleResult(consume: true, effect: .none)
     }
 }

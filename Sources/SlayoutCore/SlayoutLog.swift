@@ -10,6 +10,15 @@ public enum SlayoutLog {
         return f
     }()
 
+    private static let verboseDefaultsKey = "SlayoutVerboseLogging"
+
+    /// When true, `vlog(_:)` writes to the log. Toggled from the menubar.
+    /// Persisted across launches via UserDefaults.
+    public static var verbose: Bool {
+        get { UserDefaults.standard.bool(forKey: verboseDefaultsKey) }
+        set { UserDefaults.standard.set(newValue, forKey: verboseDefaultsKey) }
+    }
+
     public static var fileURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home.appendingPathComponent("Library/Logs/Slayout/slayout.log")
@@ -20,6 +29,13 @@ public enum SlayoutLog {
         let line = "\(formatter.string(from: Date())) \(message)\n"
         FileHandle.standardError.write(line.data(using: .utf8) ?? Data())
         appendToFile(line)
+    }
+
+    /// Verbose-only log line. Cheap when verbose is off (the message closure
+    /// isn't evaluated). Use for per-keystroke / per-window diagnostics.
+    public static func vlog(_ message: @autoclosure () -> String) {
+        guard verbose else { return }
+        log("[v] \(message())")
     }
 
     private static func appendToFile(_ line: String) {

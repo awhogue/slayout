@@ -45,7 +45,7 @@ If `swift test` fails with `no such module 'Testing'`:
 9. ✅ LastLayoutSelector keyed by per-screens fingerprint with stableInterval; AppDelegate ticks every 2s and observes `didChangeScreenParametersNotification`.
 10. ✅ Polish: README, live config reload via DispatchSourceFileSystemObject in AppDelegate.
 
-**v1 complete.** 76 tests passing.
+**v1 complete.** 82 tests passing (current).
 
 Update this section's checkmarks as steps land.
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.2.0 — resilience & polish
+
+A small follow-up release focused on diagnostics and "things that should just work."
+
+### New
+
+- **`middle-two-thirds` window action.** Centered 2/3-wide tile. Bind with e.g. `"\\" = "middle-two-thirds"` (a.k.a. `hyper+|`).
+- **Shifted-symbol key aliases.** Config keys like `"|"`, `"?"`, `":"`, `"<"`, `"+"`, `"!"`–`")"` are auto-mapped to their unshifted equivalents (`\`, `/`, `;`, `,`, `=`, digits) so bindings written the obvious way actually fire.
+- **Verbose Logging toggle in the menubar.** New menu items: `Verbose Logging` (persisted across launches), `Open Log File…`, `Reveal Log in Finder`, `Open Config…`. When verbose is on, every hyper-key press, `setFrame`, focus call, and AX failure is traced — handy for diagnosing why a particular app isn't responding.
+- **Resilient config parsing.** A single bad line (unknown action, wrong type) is now skipped with a warning instead of nuking the whole config. After reload, a popup lists the skipped lines with an "Open Config" button. Only TOML-level syntax errors fall back to defaults.
+
+### Fixes
+
+- **App lookup is fuzzier.** `Z = "Zoom"` now finds `/Applications/zoom.us.app` (whose internal `CFBundleName` is "zoom.us"). The scan does exact → prefix → substring matching across filename, `CFBundleName`, `CFBundleDisplayName`, and `CFBundleExecutable`, picking the shortest (most specific) candidate. Bundle IDs still pass straight through.
+- **AX error reporting.** `frontmostWindow` and `setFrame` now log named AX errors (`cannotComplete`, `apiDisabled`, `notImplemented`, …) when things go sideways, so it's possible to diagnose apps that refuse to respond to resize.
+- **`activate(options: [.activateAllWindows])`** when focusing a running app, which helps with some apps that previously refused to come forward.
+
+### Internals
+
+- **82 unit tests** (up from 76), still all green. New coverage: middle-two-thirds frame math, resilient parse with warnings, shifted-symbol key normalization.
+
+### Install
+
+Download `Slayout-0.2.0.zip`, then:
+
+```bash
+unzip Slayout-0.2.0.zip -d /Applications/
+# Right-click /Applications/Slayout.app → Open (first time only — Gatekeeper bypass)
+open /Applications/Slayout.app
+```
+
+Upgrade from 0.1.0: just replace the bundle. Config and saved layouts are untouched.
+
+---
+
 ## 0.1.0 — first release
 
 A keyboard-driven macOS window manager that supersedes Karabiner-Elements + Slate with one tool.

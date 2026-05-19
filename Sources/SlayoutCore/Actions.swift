@@ -23,6 +23,8 @@ public enum Actions {
             return CGRect(x: vf.minX, y: vf.minY, width: vf.width * 2 / 3, height: vf.height)
         case .rightTwoThirds:
             return CGRect(x: vf.minX + vf.width / 3, y: vf.minY, width: vf.width * 2 / 3, height: vf.height)
+        case .middleTwoThirds:
+            return CGRect(x: vf.minX + vf.width / 6, y: vf.minY, width: vf.width * 2 / 3, height: vf.height)
         case .leftThird:
             return CGRect(x: vf.minX, y: vf.minY, width: vf.width / 3, height: vf.height)
         case .middleThird:

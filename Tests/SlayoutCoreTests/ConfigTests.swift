@@ -98,6 +98,61 @@ struct ConfigTests {
         }
     }
 
+    @Test("middle-two-thirds parses, '|' normalizes to '\\\\'")
+    func middleTwoThirds() throws {
+        let cfg = try ConfigLoader.parse("""
+        [window]
+        "|" = "middle-two-thirds"
+        """)
+        // Event tap reports the unshifted key '\', so the config entry must be
+        // stored under '\' for binding lookup to succeed.
+        #expect(cfg.windows["\\"] == .middleTwoThirds)
+        #expect(cfg.windows["|"] == nil)
+    }
+
+    @Test("shifted-symbol keys normalize to unshifted form")
+    func shiftedSymbolAliases() throws {
+        let cfg = try ConfigLoader.parse("""
+        [window]
+        "?" = "fullscreen"
+        ":" = "left-half"
+        [apps]
+        "!" = "Terminal"
+        """)
+        #expect(cfg.windows["/"] == .fullscreen)
+        #expect(cfg.windows[";"] == .leftHalf)
+        #expect(cfg.apps["1"] == "Terminal")
+    }
+
+    @Test("resilient parse skips bad entries and reports warnings")
+    func resilientParseSkipsBad() throws {
+        let result = try ConfigLoader.parseResilient("""
+        [window]
+        "h" = "left-half"
+        "x" = "do-the-funky-thing"
+        "|" = "middle-two-thirds"
+        """)
+        #expect(result.config.windows["h"] == .leftHalf)
+        #expect(result.config.windows["\\"] == .middleTwoThirds)
+        #expect(result.config.windows["x"] == nil)
+        #expect(result.warnings.count == 1)
+        #expect(result.warnings.first?.contains("window.x") == true)
+    }
+
+    @Test("resilient parse still throws on TOML syntax error")
+    func resilientParseStructuralError() {
+        #expect(throws: ConfigError.self) {
+            try ConfigLoader.parseResilient("[hyper\ntrigger = ")
+        }
+    }
+
+    @Test("resilient parse keeps default trigger when value is unknown")
+    func resilientParseUnknownTrigger() throws {
+        let result = try ConfigLoader.parseResilient("[hyper]\ntrigger = \"jiggle\"\n")
+        #expect(result.config.hyperTrigger == .capsLock)
+        #expect(result.warnings.contains(where: { $0.contains("jiggle") }))
+    }
+
     @Test("uppercase key in apps is normalized to lowercase")
     func keyNormalization() throws {
         let cfg = try ConfigLoader.parse("""

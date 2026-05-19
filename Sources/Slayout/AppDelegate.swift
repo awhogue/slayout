@@ -29,7 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func loadConfigAndStart() {
-        config = ConfigPaths.loadOrCreate()
+        let result = ConfigPaths.loadOrCreateWithWarnings()
+        config = result.config
+        if !result.warnings.isEmpty { presentConfigWarnings(result.warnings) }
         bindings = Bindings(config: config)
         bindings.savedLayouts = LayoutStore.savedLayoutKeys()
 
@@ -160,17 +162,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func lookupBundleID(for nameOrBundle: String) -> String? {
-        if nameOrBundle.contains(".") { return nameOrBundle }
-        for app in NSWorkspace.shared.runningApplications where app.localizedName == nameOrBundle {
-            return app.bundleIdentifier
+        // Treat anything that looks like reverse-DNS (multiple dots) as a bundle ID.
+        if nameOrBundle.contains(".") && !nameOrBundle.hasSuffix(".us") {
+            return nameOrBundle
         }
-        let path = "/Applications/\(nameOrBundle).app"
-        if FileManager.default.fileExists(atPath: path),
-           let bundle = Bundle(path: path),
+        let target = nameOrBundle.lowercased()
+        for app in NSWorkspace.shared.runningApplications {
+            if app.localizedName?.lowercased() == target { return app.bundleIdentifier }
+        }
+        // Direct path match first (fast path for normal apps).
+        let direct = "/Applications/\(nameOrBundle).app"
+        if FileManager.default.fileExists(atPath: direct),
+           let bundle = Bundle(path: direct),
            let id = bundle.bundleIdentifier {
             return id
         }
+        // Fallback: scan /Applications for any .app whose CFBundleName,
+        // CFBundleDisplayName, or filename matches (case-insensitive). This
+        // catches apps whose on-disk filename differs from their display name —
+        // e.g. "Zoom Workplace" lives at /Applications/zoom.us.app.
+        if let id = scanApplicationsForBundleID(matching: target) { return id }
+        SlayoutLog.log("Slayout: lookupBundleID: no match for \"\(nameOrBundle)\"")
         return nil
+    }
+
+    private func scanApplicationsForBundleID(matching target: String) -> String? {
+        let roots = ["/Applications", "/Applications/Utilities",
+                     (NSHomeDirectory() as NSString).appendingPathComponent("Applications")]
+        let fm = FileManager.default
+        struct Candidate { let bundleID: String; let displayLen: Int; let kind: String; let path: String }
+        var exact: [Candidate] = []
+        var prefix: [Candidate] = []
+        var substr: [Candidate] = []
+        for root in roots {
+            guard let entries = try? fm.contentsOfDirectory(atPath: root) else { continue }
+            for entry in entries where entry.hasSuffix(".app") {
+                let path = "\(root)/\(entry)"
+                guard let bundle = Bundle(path: path), let bid = bundle.bundleIdentifier else { continue }
+                let filename = (entry as NSString).deletingPathExtension.lowercased()
+                let info = bundle.infoDictionary ?? [:]
+                let name = (info["CFBundleName"] as? String)?.lowercased() ?? ""
+                let display = (info["CFBundleDisplayName"] as? String)?.lowercased() ?? ""
+                let execName = (info["CFBundleExecutable"] as? String)?.lowercased() ?? ""
+                let fields = [filename, name, display, execName].filter { !$0.isEmpty }
+                let len = (display.isEmpty ? (name.isEmpty ? filename : name) : display).count
+                let c = Candidate(bundleID: bid, displayLen: len, kind: "", path: path)
+                if fields.contains(where: { $0 == target }) {
+                    exact.append(c); continue
+                }
+                if target.count >= 2, fields.contains(where: { $0.hasPrefix(target) }) {
+                    prefix.append(c); continue
+                }
+                if target.count >= 3, fields.contains(where: { $0.contains(target) }) {
+                    substr.append(c)
+                }
+            }
+        }
+        // Pick best: exact > prefix > substring; within a tier, shortest display name (most specific match).
+        let pick: (Candidate) -> String = { c in
+            SlayoutLog.log("Slayout: lookupBundleID: matched \"\(target)\" -> \(c.bundleID) at \(c.path)")
+            return c.bundleID
+        }
+        if let c = exact.min(by: { $0.displayLen < $1.displayLen }) { return pick(c) }
+        if let c = prefix.min(by: { $0.displayLen < $1.displayLen }) { return pick(c) }
+        if let c = substr.min(by: { $0.displayLen < $1.displayLen }) { return pick(c) }
+        return nil
+    }
+
+    private func presentConfigWarnings(_ warnings: [String]) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Slayout config has \(warnings.count) issue\(warnings.count == 1 ? "" : "s")"
+            alert.informativeText = warnings.joined(separator: "\n") + "\n\nThe rest of your config has been loaded."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Open Config")
+            NSApp.activate(ignoringOtherApps: true)
+            let resp = alert.runModal()
+            if resp == .alertSecondButtonReturn {
+                NSWorkspace.shared.open(ConfigPaths.configFile)
+            }
+        }
     }
 
     private func setupStatusItem() {
@@ -187,6 +259,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Slayout", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(makeItem("Reload Config", #selector(reload)))
+        menu.addItem(makeItem("Open Config…", #selector(openConfig)))
+        menu.addItem(.separator())
+        let verboseItem = NSMenuItem(title: "Verbose Logging",
+                                     action: #selector(toggleVerbose),
+                                     keyEquivalent: "")
+        verboseItem.state = SlayoutLog.verbose ? .on : .off
+        verboseItem.target = self
+        menu.addItem(verboseItem)
+        menu.addItem(makeItem("Open Log File…", #selector(openLog)))
+        menu.addItem(makeItem("Reveal Log in Finder", #selector(revealLog)))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         for mi in menu.items where mi.action != nil { mi.target = self }
@@ -202,4 +284,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func reload() { loadConfigAndStart() }
     @objc private func quit() { NSApp.terminate(nil) }
+
+    @objc private func openConfig(_ sender: NSMenuItem) {
+        NSWorkspace.shared.open(ConfigPaths.configFile)
+    }
+
+    @objc private func openLog(_ sender: NSMenuItem) {
+        NSWorkspace.shared.open(SlayoutLog.fileURL)
+    }
+
+    @objc private func revealLog(_ sender: NSMenuItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([SlayoutLog.fileURL])
+    }
+
+    @objc private func toggleVerbose(_ sender: NSMenuItem) {
+        SlayoutLog.verbose.toggle()
+        sender.state = SlayoutLog.verbose ? .on : .off
+        SlayoutLog.log("Slayout: verbose logging \(SlayoutLog.verbose ? "ENABLED" : "disabled")")
+    }
 }

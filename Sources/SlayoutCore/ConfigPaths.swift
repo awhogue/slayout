@@ -41,22 +41,31 @@ public enum ConfigPaths {
     """
 
     /// Read the config from disk, creating a default if absent. Never throws —
-    /// returns Config.default on read or parse error.
+    /// returns Config.default on read error.
     @discardableResult
     public static func loadOrCreate() -> Config {
+        loadOrCreateWithWarnings().config
+    }
+
+    /// Resilient variant: skips bad entries, returns warnings the caller can
+    /// surface to the user. Returns `(.default, [warning])` on a structural
+    /// (TOML-level) parse error so a broken file doesn't wipe out the app.
+    @discardableResult
+    public static func loadOrCreateWithWarnings() -> ConfigParseResult {
         let fm = FileManager.default
         try? fm.createDirectory(at: configDir, withIntermediateDirectories: true)
         if !fm.fileExists(atPath: configFile.path) {
             try? defaultConfigTOML.write(to: configFile, atomically: true, encoding: .utf8)
         }
         guard let data = try? String(contentsOf: configFile, encoding: .utf8) else {
-            return .default
+            return ConfigParseResult(config: .default, warnings: ["Could not read \(configFile.path)"])
         }
         do {
-            return try ConfigLoader.parse(data)
+            return try ConfigLoader.parseResilient(data)
         } catch {
-            NSLog("Slayout: failed to parse config: \(error). Using defaults.")
-            return .default
+            let msg = "Failed to parse config (TOML syntax error): \(error). Using built-in defaults."
+            SlayoutLog.log("Slayout: \(msg)")
+            return ConfigParseResult(config: .default, warnings: [msg])
         }
     }
 }

@@ -11,7 +11,7 @@ public enum HyperTrigger: String, Equatable, Sendable {
 public enum WindowAction: Equatable, Sendable {
     case fullscreen
     case leftHalf, rightHalf, topHalf, bottomHalf
-    case leftTwoThirds, rightTwoThirds
+    case leftTwoThirds, middleTwoThirds, rightTwoThirds
     case leftThird, middleThird, rightThird
     case center
     case screen(String)
@@ -57,7 +57,78 @@ public enum ConfigError: Error, Equatable {
     case wrongType(String)
 }
 
+/// Result of a resilient config parse: the (possibly partial) config plus a
+/// list of human-readable warnings for individual entries that were skipped.
+public struct ConfigParseResult: Equatable, Sendable {
+    public var config: Config
+    public var warnings: [String]
+    public init(config: Config, warnings: [String]) {
+        self.config = config
+        self.warnings = warnings
+    }
+}
+
 public enum ConfigLoader {
+    /// Throws on structural TOML errors. Per-entry errors are returned as warnings
+    /// so a single bad line doesn't blow away the whole config.
+    public static func parseResilient(_ source: String) throws -> ConfigParseResult {
+        let table: TOMLTable
+        do {
+            table = try TOMLTable(string: source)
+        } catch {
+            throw ConfigError.parseError(String(describing: error))
+        }
+
+        var config = Config()
+        var warnings: [String] = []
+
+        if let hyper = table["hyper"]?.table, let trigger = hyper["trigger"] {
+            if let raw = trigger.string {
+                if let parsed = HyperTrigger(rawValue: raw) {
+                    config.hyperTrigger = parsed
+                } else {
+                    warnings.append("hyper.trigger: unknown trigger \"\(raw)\" — keeping default (caps_lock)")
+                }
+            } else {
+                warnings.append("hyper.trigger must be a string — keeping default")
+            }
+        }
+
+        if let apps = table["apps"]?.table {
+            for (key, value) in apps {
+                guard let name = value.string else {
+                    warnings.append("apps.\(key): value must be a string — skipped")
+                    continue
+                }
+                config.apps[normalizeKey(key)] = name
+            }
+        }
+
+        if let windows = table["window"]?.table {
+            for (key, value) in windows {
+                guard let raw = value.string else {
+                    warnings.append("window.\(key): value must be a string — skipped")
+                    continue
+                }
+                do {
+                    config.windows[normalizeKey(key)] = try parseWindowAction(raw)
+                } catch {
+                    warnings.append("window.\(key) = \"\(raw)\": unknown action — skipped")
+                }
+            }
+        }
+
+        if let meta = table["meta"]?.table {
+            if let v = meta["record"]?.string { config.meta.record = normalizeKey(v) }
+            if let v = meta["restore_last"]?.string { config.meta.restoreLast = normalizeKey(v) }
+            if let v = meta["reload"]?.string { config.meta.reload = normalizeKey(v) }
+        }
+
+        return ConfigParseResult(config: config, warnings: warnings)
+    }
+
+    /// Strict parse that throws on the first per-entry error. Retained for
+    /// existing callers and tests that want strict semantics.
     public static func parse(_ source: String) throws -> Config {
         let table: TOMLTable
         do {
@@ -107,8 +178,20 @@ public enum ConfigLoader {
         return config
     }
 
+    /// US-keyboard shifted-symbol → unshifted-key aliases. The event tap reports
+    /// the unshifted key, so a config entry of `"|"` would never match without
+    /// this mapping (the actual keypress is reported as `"\\"`).
+    private static let shiftedSymbolAliases: [String: String] = [
+        "|": "\\", "?": "/", ":": ";", "\"": "'",
+        "<": ",", ">": ".", "~": "`", "{": "[", "}": "]",
+        "+": "=", "_": "-",
+        "!": "1", "@": "2", "#": "3", "$": "4", "%": "5",
+        "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+    ]
+
     private static func normalizeKey(_ key: String) -> String {
-        key.lowercased()
+        let lower = key.lowercased()
+        return shiftedSymbolAliases[lower] ?? lower
     }
 
     private static func parseWindowAction(_ raw: String) throws -> WindowAction {
@@ -124,6 +207,7 @@ public enum ConfigLoader {
         case "top-half": return .topHalf
         case "bottom-half": return .bottomHalf
         case "left-two-thirds": return .leftTwoThirds
+        case "middle-two-thirds": return .middleTwoThirds
         case "right-two-thirds": return .rightTwoThirds
         case "left-third": return .leftThird
         case "middle-third": return .middleThird

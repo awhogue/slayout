@@ -17,13 +17,25 @@ public final class WindowServerAX: WindowServer {
     }
 
     public func frontmostWindow() -> WindowRef? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            SlayoutLog.vlog("frontmostWindow: NSWorkspace.frontmostApplication is nil")
+            return nil
+        }
         let appEl = AXUIElementCreateApplication(app.processIdentifier)
-        guard let focused = copyAttribute(appEl, kAXFocusedWindowAttribute) else { return nil }
+        var value: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &value)
+        guard err == .success, let focused = value else {
+            SlayoutLog.vlog("frontmostWindow: \(app.localizedName ?? "?") (\(app.bundleIdentifier ?? "?")) — AXFocusedWindow error=\(err.rawValue) (\(axErrorName(err)))")
+            return nil
+        }
         let axWindow = focused as! AXUIElement
-        return makeRef(for: axWindow,
-                       bundleID: app.bundleIdentifier ?? "",
-                       appName: app.localizedName ?? "")
+        let ref = makeRef(for: axWindow,
+                          bundleID: app.bundleIdentifier ?? "",
+                          appName: app.localizedName ?? "")
+        if ref == nil {
+            SlayoutLog.vlog("frontmostWindow: \(app.localizedName ?? "?") — focused window has unreadable frame")
+        }
+        return ref
     }
 
     public func allWindows() -> [WindowRef] {
@@ -51,20 +63,32 @@ public final class WindowServerAX: WindowServer {
         }
         var pos = CGPoint(x: frame.minX, y: frame.minY)
         var size = CGSize(width: frame.width, height: frame.height)
+        var posErr: AXError = .success
+        var sizeErr: AXError = .success
         if let posVal = AXValueCreate(.cgPoint, &pos) {
-            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posVal)
+            posErr = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, posVal)
         }
         if let sizeVal = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeVal)
+            sizeErr = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeVal)
+        }
+        if posErr != .success || sizeErr != .success {
+            SlayoutLog.log("Slayout: setFrame: \(window.appName) \"\(window.title)\" -> \(frame) posErr=\(axErrorName(posErr)) sizeErr=\(axErrorName(sizeErr))")
+        } else {
+            SlayoutLog.vlog("setFrame ok: \(window.appName) \"\(window.title)\" -> \(frame)")
         }
     }
 
     public func focus(bundleID: String) {
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-            app.activate()
+            let ok = app.activate(options: [.activateAllWindows])
+            SlayoutLog.vlog("focus: activate \(bundleID) -> \(ok)")
             return
         }
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            SlayoutLog.log("Slayout: focus: no app found for bundleID=\(bundleID)")
+            return
+        }
+        SlayoutLog.vlog("focus: launching \(bundleID) at \(url.path)")
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
@@ -85,6 +109,28 @@ public final class WindowServerAX: WindowServer {
         var value: CFTypeRef?
         let err = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
         return err == .success ? value : nil
+    }
+
+    private func axErrorName(_ err: AXError) -> String {
+        switch err {
+        case .success: return "success"
+        case .failure: return "failure"
+        case .illegalArgument: return "illegalArgument"
+        case .invalidUIElement: return "invalidUIElement"
+        case .invalidUIElementObserver: return "invalidUIElementObserver"
+        case .cannotComplete: return "cannotComplete"
+        case .attributeUnsupported: return "attributeUnsupported"
+        case .actionUnsupported: return "actionUnsupported"
+        case .notificationUnsupported: return "notificationUnsupported"
+        case .notImplemented: return "notImplemented"
+        case .notificationAlreadyRegistered: return "notificationAlreadyRegistered"
+        case .notificationNotRegistered: return "notificationNotRegistered"
+        case .apiDisabled: return "apiDisabled"
+        case .noValue: return "noValue"
+        case .parameterizedAttributeUnsupported: return "parameterizedAttributeUnsupported"
+        case .notEnoughPrecision: return "notEnoughPrecision"
+        @unknown default: return "unknown(\(err.rawValue))"
+        }
     }
 
     private func readFrame(_ axWindow: AXUIElement) -> CGRect? {
