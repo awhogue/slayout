@@ -11,9 +11,26 @@ import CoreFoundation
 public final class WindowServerAX: WindowServer {
     private let screens: ScreenProvider
     private var axCache: [UInt32: AXUIElement] = [:]
+    /// PIDs we've already nudged with AXManualAccessibility=true. Setting it
+    /// repeatedly is harmless but logs noise; we only do it on first contact
+    /// or after an apiDisabled retry.
+    private var enabledPIDs: Set<pid_t> = []
 
     public init(screens: ScreenProvider) {
         self.screens = screens
+    }
+
+    /// Some apps — notably Electron-based ones like Claude and Granola — don't
+    /// enable their own AX subsystem on launch, so AXFocusedWindow / AXWindows
+    /// queries return `apiDisabled` (-25211). Writing
+    /// `AXManualAccessibility = true` to the app element forces the framework
+    /// to wire AX up. Returns true if the attribute was set successfully.
+    @discardableResult
+    private func enableManualAccessibility(_ appEl: AXUIElement, pid: pid_t, appName: String) -> Bool {
+        let err = AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        enabledPIDs.insert(pid)
+        SlayoutLog.vlog("AXManualAccessibility set for \(appName) pid=\(pid) -> \(axErrorName(err))")
+        return err == .success
     }
 
     public func frontmostWindow() -> WindowRef? {
@@ -23,7 +40,11 @@ public final class WindowServerAX: WindowServer {
         }
         let appEl = AXUIElementCreateApplication(app.processIdentifier)
         var value: CFTypeRef?
-        let err = AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &value)
+        var err = AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &value)
+        if err == .apiDisabled, !enabledPIDs.contains(app.processIdentifier) {
+            enableManualAccessibility(appEl, pid: app.processIdentifier, appName: app.localizedName ?? "?")
+            err = AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &value)
+        }
         guard err == .success, let focused = value else {
             SlayoutLog.vlog("frontmostWindow: \(app.localizedName ?? "?") (\(app.bundleIdentifier ?? "?")) — AXFocusedWindow error=\(err.rawValue) (\(axErrorName(err)))")
             return nil
@@ -46,7 +67,13 @@ public final class WindowServerAX: WindowServer {
             guard let bundleID = app.bundleIdentifier else { continue }
             let appName = app.localizedName ?? bundleID
             let appEl = AXUIElementCreateApplication(app.processIdentifier)
-            guard let raw = copyAttribute(appEl, kAXWindowsAttribute) as? [AXUIElement] else { continue }
+            var rawVal: CFTypeRef?
+            var err = AXUIElementCopyAttributeValue(appEl, kAXWindowsAttribute as CFString, &rawVal)
+            if err == .apiDisabled, !enabledPIDs.contains(app.processIdentifier) {
+                enableManualAccessibility(appEl, pid: app.processIdentifier, appName: appName)
+                err = AXUIElementCopyAttributeValue(appEl, kAXWindowsAttribute as CFString, &rawVal)
+            }
+            guard err == .success, let raw = rawVal as? [AXUIElement] else { continue }
             for axWindow in raw {
                 if let ref = makeRef(for: axWindow, bundleID: bundleID, appName: appName) {
                     result.append(ref)

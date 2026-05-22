@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.1 — Electron app fix
+
+### Fixes
+
+- **Electron apps now respond to window actions.** Apps like Claude and Granola don't enable their own AX subsystem on launch, so `AXFocusedWindow` / `AXWindows` queries against them returned `apiDisabled` (-25211) and Slayout silently did nothing. When that error comes back, Slayout now writes `AXManualAccessibility = true` to the app's AX element and retries — the same trick Rectangle and Loop use. PIDs are cached so the attribute is only set once per process lifetime.
+
+### Install
+
+```bash
+unzip Slayout-0.2.1.zip -d /Applications/
+open /Applications/Slayout.app
+```
+
+In-place upgrade from 0.2.0: replace the bundle. Config and saved layouts are untouched.
+
+---
+
 ## 0.2.0 — resilience & polish
 
 A small follow-up release focused on diagnostics and "things that should just work."

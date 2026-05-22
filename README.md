@@ -71,16 +71,16 @@ To install Slayout on a second Mac without rebuilding from source on it:
 ```bash
 # On the build machine:
 ./scripts/package-release.sh
-# produces Slayout-0.2.0.zip (~800 KB)
+# produces Slayout-0.2.1.zip (~800 KB)
 
 # Transfer the zip however you like (AirDrop, scp, GitHub release, Drive...)
-scp Slayout-0.2.0.zip other-mac:~/Downloads/
+scp Slayout-0.2.1.zip other-mac:~/Downloads/
 ```
 
 On the receiving Mac:
 
 ```bash
-unzip ~/Downloads/Slayout-0.2.0.zip -d /Applications/
+unzip ~/Downloads/Slayout-0.2.1.zip -d /Applications/
 # Right-click /Applications/Slayout.app -> Open the FIRST time
 # (Gatekeeper bypass for ad-hoc-signed apps; only needed once)
 open /Applications/Slayout.app
